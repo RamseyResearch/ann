@@ -5,8 +5,8 @@ using namespace std;
 class ANN
 {
 private:
-	vector<vector<float>> biases;
-	vector<vecor<float>> 
+	vector<vector<float> > biases;
+	vector<vector<float> > weights;
 
 public:
 	ANN()
@@ -19,7 +19,9 @@ public:
 
 int main()
 {
-	cout << "yo";
+	cout << "yo" << endl;
+}
+
 
 
 
