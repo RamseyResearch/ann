@@ -311,7 +311,7 @@ public:
 	}
 
 	//calls all four steps at once for set of training pairs (x, y)
-	void updatePair(vector<vector<vector<float>>> pair, float rate, int n)
+	void updatePair(vector<vector<vector<float>>> &pair, float rate, int n)
 	{
 		//check to see if pairs are given and then if they match dimensions of input and output layers
 		for (int i = 0; i < pair.size(); i++) {
@@ -325,64 +325,54 @@ public:
 		for (int a = 0; a < n; a++) {
 			for (int i = 0; i < pair.size(); i++)
 				updateOne(pair[i][0], pair[i][1], rate);
+			
+			if (a % (n / 10) == n/10 - 1)
+				cout << "Epoch " << a + 1<< " Cost: " << costPairs(pair) << endl;
 		}
+	}
+
+	//--------------------COST FUNCTIONS--------------------
+
+	//mean squared error
+	float costPairs(vector<vector<vector<float>>> &stuff)
+	{
+		float sum = 0;
+
+		for (int i = 0; i < stuff.size(); i++) {
+			feedForward(stuff[i][0]);
+
+			for (int j = 0; j < stuff[i][1].size(); j++) {
+				cout << j << " " << stuff[i][1][j] - activations[activations.size() - 1][j] <<'\n';
+				sum += pow(stuff[i][1][j] - activations[activations.size() - 1][j], 2);
+			}
+		}
+
+		sum /= 2 * stuff.size();
+
+		return sum;
 	}
 };
 
 int main()
 {
-	/*vector<vector<float>> theBiases = { {0, 0, 0}, {0, 4}, {0, 0} };
-	vector<vector<vector<float>>> theWeights = { { {1, 3},{-2, 2},{3, 3} }, { {1, -1},{-1, -2} } };
+	vector<int> len = {3, 5, 1};
 
-	vector<vector<float>> theB = { {0, 0, 0}, {0, 0}, {0, 0} };
-	vector<vector<vector<float>>> theW = { { {100, -100},{-100, 100},{-100, 100} }, { {100, -100},{-100, 100} } };
+	vector<vector<vector<float>>> train = 
+	{ {{255, 0, 0}, {.7874f}},
+	{{0, 255, 0}, {.2848f}},
+	{{0, 0, 255}, {.9278f}},
+	{{255, 255, 255}, {0}},
+	{{0, 0, 0}, {1}},
+	{{255, 255, 128}, {.0399f}},
+	{{0, 128, 0},{.5696f}},
+	{{100, 0, 200}, {.8605f}} };
 
-
-	vector<int> len = {3, 2, 2};
-
-	vector<float> input1 = {1, 0, 0};
-	vector<float> output1 = {1, 0};
-
-	vector<float> input2 = {0, 1, 0};
-	vector<float> output2 = { 0, 1 };
-
-	vector<float> input3 = {0, 0, 1};
-	vector<float> output3 = {0, 1};
-
-	vector<vector<float>> input = {input1, input2, input3};
-	vector<vector<float>> output = {output1, output2, output3};
-
-	ANN network1 = ANN(len);
-	ANN network1 = ANN(theW, theB);
-	network1.printBiases();
-	network1.printWeights();
-	network1.update(input, output, 10, 10000);
-	network1.printBiases();
-	network1.printWeights();
-	network1.feedForward(input1);
-	network1.printActivations();
-	network1.printErrors();*/
-
-	vector<int> len2 = {5, 4, 3};
-	vector<vector<float>> inp = { {1, 0, 0, 0, 0}, {0, 1, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, 1, 0}, {0, 0, 0, 0, 1} };
-	vector<vector<float>> out = { {1, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}, {0, 1, 0} };
-
-	/*ANN network2 = ANN(len2);
-	network2.update(inp, out, 10, 1000);
-	vector<float> feed = {1, 0, 0, 0, 0};
-	network2.feedForward(feed);
-	network2.printActivations();
-	network2.printErrors();*/
-
-	vector<vector<vector<float>>> train = { {{1, 0, 0, 0, 0}, {1, 0, 1}}, {{0, 1, 0, 0, 0}, {1, 0, 1}}, {{0, 0, 1, 0, 0}, {1, 1, 1}}, {{0, 0, 0, 1, 0}, {0, 1, 1}}, {{0, 0, 0, 0, 1}, {0, 1, 0}} };
-
-
-	ANN network3 = ANN(len2);
-	network3.updatePair(train, 1, 1000);
-	vector<float> feed = { 0, 0, 0, 0, 1 };
-	network3.feedForward(feed);
-	network3.printActivations();
-	network3.printErrors();
+	ANN network = ANN(len);
+	network.updatePair(train, 2, 1000);
+	vector<float> feed = {128, 128, 128};
+	network.feedForward(feed);
+	network.printActivations();
+	network.printErrors();
 
 	system("PAUSE");
 }
