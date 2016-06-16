@@ -342,7 +342,7 @@ public:
 			feedForward(stuff[i][0]);
 
 			for (int j = 0; j < stuff[i][1].size(); j++) {
-				cout << j << " " << stuff[i][1][j] - activations[activations.size() - 1][j] <<'\n';
+				//cout << j << " " << stuff[i][1][j] - activations[activations.size() - 1][j] <<'\n';
 				sum += pow(stuff[i][1][j] - activations[activations.size() - 1][j], 2);
 			}
 		}
@@ -355,24 +355,26 @@ public:
 
 int main()
 {
-	vector<int> len = {3, 5, 1};
+	vector<int> len = {3, 3, 1};
 
-	vector<vector<vector<float>>> train = 
-	{ {{255, 0, 0}, {.7874f}},
-	{{0, 255, 0}, {.2848f}},
-	{{0, 0, 255}, {.9278f}},
-	{{255, 255, 255}, {0}},
-	{{0, 0, 0}, {1}},
-	{{255, 255, 128}, {.0399f}},
-	{{0, 128, 0},{.5696f}},
-	{{100, 0, 200}, {.8605f}} };
+	vector<vector<vector<float>>> train;
+
+	default_random_engine generatorC(time(NULL));
+	uniform_real_distribution<float> distC(0, 1);
+
+	for (int i = 0; i < 100; i++) {
+		float r = distC(generatorC), g = distC(generatorC), b = distC(generatorC);
+		float dark = 1 - (.2126*r + .7152*g + .0722*b);
+
+		vector<vector<float>> RGB = { {r, g, b}, {(dark < .5 ? 0.0f : 1.0f)} };
+		train.push_back(RGB);
+	}
 
 	ANN network = ANN(len);
-	network.updatePair(train, 2, 1000);
-	vector<float> feed = {128, 128, 128};
+	network.updatePair(train, 5, 2000);
+	vector<float> feed = {.3f, .3f, .3f};
 	network.feedForward(feed);
 	network.printActivations();
-	network.printErrors();
 
 	system("PAUSE");
 }
