@@ -9,8 +9,10 @@ using namespace std;
 
 class ANN
 {
+
 private:
 
+	//------------------------------ANN CONTENTS------------------------------
 	int numLayers;
 	int maxLength;
 	vector<int> layerLengths;
@@ -22,9 +24,9 @@ private:
 
 public:
 
-	//--------------------CONSTRUCTORS--------------------
+	//------------------------------CONSTRUCTORS------------------------------
 
-	// get lengths of ANN layers, then sets weights and biases randomly for given "dimensions", also sets activations and errors to 0
+	//set ANN based on layer lengths
 	ANN(vector<int> &lengths)
 	{
 		default_random_engine generatorB(time(NULL));
@@ -75,7 +77,7 @@ public:
 		}
 	}
 
-	//set ANN based on 3D weight matrix and bias matrix
+	//set ANN based on weight and bias matrix
 	ANN(vector<vector<vector<float>>> &w, vector<vector<float>> &b)
 	{
 		//check if dimensions of w and b are compatible
@@ -126,7 +128,7 @@ public:
 		}
 	}
 
-	//initialize ANN from file
+	//set ANN based on file
 	ANN(string file)
 	{
 		ifstream in(file);
@@ -178,9 +180,8 @@ public:
 						in >> c;
 						biases[j][i] = 0;
 					}
-					else {
+					else
 						in >> biases[j][i];
-					}
 				}
 			}
 		}
@@ -196,7 +197,7 @@ public:
 		}
 	}
 
-	//--------------------PRINT FUNCTIONS--------------------
+	//------------------------------PRINT FUNCTIONS------------------------------
 
 	//print all errors, X for first (input) layer
 	void printErrors()
@@ -253,30 +254,23 @@ public:
 		st << endl;
 	}
 
-	//print all weights
+	//print all weights; w[n][][] correspond to b[n+1][]
 	void printWeights(ostream &st)
 	{
 		st << "Weights:" << endl;
 
-		for (int i = 1; i <= weights.size(); i++)
-			printWeightsForLayer(i, st);
+		for (int i = 1; i <= weights.size(); i++) {
+			for (int j = 0; j < layerLengths[i - 1]; j++) {
+				for (int k = 0; k < layerLengths[i]; k++)
+					st << weights[i - 1][j][k] << " ";
+				st << endl;
+			}
+			st << endl;
+		}		
+			//printWeightsForLayer(i, st);
 	}
 
-	//print weights leading into layer [w] from [w - 1]
-	void printWeightsForLayer(int w, ostream &stl)
-	{
-		if (w <= 0 || numLayers <= w)
-			return;
-
-		for (int j = 0; j < layerLengths[w - 1]; j++){
-			for (int k = 0; k < layerLengths[w]; k++)
-				stl << weights[w - 1][j][k] << " ";
-			stl << endl;
-		}
-		stl << endl;
-	}
-
-	//--------------------UPDATING FUNCTIONS--------------------
+	//------------------------------BACKPROPOGATION------------------------------
 
 	//calculate activations for all layers
 	void feedForward(vector<float> &x)
@@ -319,7 +313,6 @@ public:
 		}
 	}
 
-
 	//gradient descent
 	void descent(float rate)
 	{
@@ -337,6 +330,8 @@ public:
 				biases[i][j] -= rate * errors[i][j];
 		}
 	}
+
+	//------------------------------UPDATING FUNCTIONS------------------------------
 
 	//calls all four steps at once for one training example
 	void updateOne(vector<float> &in, vector<float> &out, float rate)
@@ -394,9 +389,11 @@ public:
 			if (a % (n / 10) == n/10 - 1)
 				cout << "Epoch " << a + 1<< " Cost: " << costPairs(pair) << endl;
 		}
+
+		cout << endl;
 	}
 
-	//--------------------COST FUNCTIONS--------------------
+	//------------------------------COST FUNCTIONS------------------------------
 
 	//mean squared error
 	float costPairs(vector<vector<vector<float>>> &stuff)
@@ -406,18 +403,14 @@ public:
 		for (int i = 0; i < stuff.size(); i++) {
 			feedForward(stuff[i][0]);
 
-			for (int j = 0; j < stuff[i][1].size(); j++) {
-				//cout << j << " " << stuff[i][1][j] - activations[activations.size() - 1][j] <<'\n';
+			for (int j = 0; j < stuff[i][1].size(); j++) 
 				sum += pow(stuff[i][1][j] - activations[activations.size() - 1][j], 2);
-			}
 		}
 
-		sum /= 2 * stuff.size();
-
-		return sum;
+		return sum/(2 * stuff.size());
 	}
 
-	//--------------------FILE I/O--------------------
+	//------------------------------FILE I/O------------------------------
 
 	//output ANN to file
 	void output(string fileName)
@@ -426,11 +419,11 @@ public:
 		file.open(fileName);
 
 		if (!file) {
-			cout << "Error 404: File not found lolol" << endl;
+			cout << "Error 404: No file" << endl;
 			return;
 		}
 
-		file << biases.size()<<" ";
+		file << biases.size()<<endl;
 
 		for (int i = 0; i < biases.size(); i++)
 			file << biases[i].size() << " ";
@@ -445,12 +438,10 @@ public:
 
 int main()
 {
-	vector<int> len = {3, 8, 2};
-
-	vector<vector<vector<float>>> train;
-
 	default_random_engine generatorC(time(NULL));
 	uniform_real_distribution<float> distC(0, 1);
+
+	vector<vector<vector<float>>> train;
 
 	for (int i = 0; i < 100; i++) {
 		float r = distC(generatorC), g = distC(generatorC), b = distC(generatorC);
@@ -460,13 +451,15 @@ int main()
 		train.push_back(RGB);
 	}
 
+	vector<int> len = {3, 2, 2};
+
 	ANN network = ANN(len);
 	network.updatePair(train, 5, 20);
+	network.output("ANN.txt");
+
 	vector<float> feed = {.3f, .3f, .3f};
 	network.feedForward(feed);
-	network.printBiases(cout);
 	network.printWeights(cout);
-	network.output("ANN.txt");
 
 	system("PAUSE");
 }
