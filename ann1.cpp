@@ -3,6 +3,8 @@
 #include<cmath>
 #include<random>
 #include<ctime>
+#include<fstream>
+#include<string>
 using namespace std;
 
 class ANN
@@ -39,7 +41,7 @@ public:
 		for (int i = 0; i < numLayers; i++) {
 			vector<float> row;
 			for (int j = 0; j < lengths[i]; j++)
-				row.push_back( distB(generatorB) );  //was 1
+				row.push_back( distB(generatorB) );
 			biases.push_back(row);
 		}
 
@@ -124,6 +126,76 @@ public:
 		}
 	}
 
+	//initialize ANN from file
+	ANN(string file)
+	{
+		ifstream in(file);
+		if (!in) {
+			cout << "Error!!" << endl;
+			return;
+		}
+
+		in >> numLayers;
+		layerLengths.resize(numLayers);
+
+		maxLength = 0;
+
+		for (int i = 0; i < numLayers; i++) {
+			in >> layerLengths[i];
+			maxLength = (maxLength < layerLengths[i] ? layerLengths[i]: maxLength);
+		}
+
+		//init biases
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			biases.push_back(row);
+		}
+
+		//init weights
+		for (int i = 0; i < numLayers - 1; i++) {
+			vector<vector<float>> row;
+
+			for (int j = 0; j < layerLengths[i]; j++) {
+				vector<float> subRow;
+				for (int k = 0; i + 1 < numLayers && k < layerLengths[i + 1]; k++)
+					subRow.push_back(0);
+				row.push_back(subRow);
+			}
+			weights.push_back(row);
+		}
+
+		string temp;
+		in >> temp;
+
+		//get biases
+		for (int i = 0; i < maxLength; i++) {
+			for (int j = 0; j < numLayers; j++) {
+				if (i < layerLengths[j]) {
+					if (j == 0) {
+						char c;
+						in >> c;
+						biases[j][i] = 0;
+					}
+					else {
+						in >> biases[j][i];
+					}
+				}
+			}
+		}
+
+		in >> temp;
+
+		//get weights
+		for (int i = 0; i < weights.size(); i++) {
+			for (int j = 0; j < weights[i].size(); j++) {
+				for (int k = 0; k < weights[i][j].size(); k++)
+					in >> weights[i][j][k];
+			}
+		}
+	}
+
 	//--------------------PRINT FUNCTIONS--------------------
 
 	//print all errors, X for first (input) layer
@@ -163,52 +235,45 @@ public:
 	}
 
 	//print all biases; first layer is Xs
-	void printBiases()
+	void printBiases(ostream &st)
 	{
-		cout << "Biases:" << endl;
+		st << "Biases:" << endl;
 
 		for (unsigned j = 0; j < maxLength; j++){
 			for (unsigned i = 0; i < biases.size(); i++) {
 					if (i == 0 && j < biases[i].size())
-						cout << "X ";
+						st << "X ";
 					else if (j >= biases[i].size())
-						cout << "  ";
+						st << "  ";
 					else
-						cout << biases[i][j] << " ";
+						st << biases[i][j] << " ";
 			}
-				cout << endl;
+				st << endl;
 		}
-		cout << endl;
+		st << endl;
 	}
 
 	//print all weights
-	void printWeights()
+	void printWeights(ostream &st)
 	{
-		cout << "Weights:" << endl;
+		st << "Weights:" << endl;
 
-		for (int i = 0; i < maxLength; i++) {
-			for (int j = 0; j < numLayers - 1; j++) {
-				for (int k = 0; k < layerLengths[j + 1]; k++)
-					(i < layerLengths[j] ? cout << weights[j][i][k] << " " : cout << "  ");
-				cout << "  ";
-			}
-			cout << endl;
-		}
-		cout << endl;
+		for (int i = 1; i <= weights.size(); i++)
+			printWeightsForLayer(i, st);
 	}
 
 	//print weights leading into layer [w] from [w - 1]
-	void printWeightsForLayer(int w)
+	void printWeightsForLayer(int w, ostream &stl)
 	{
 		if (w <= 0 || numLayers <= w)
 			return;
 
 		for (int j = 0; j < layerLengths[w - 1]; j++){
 			for (int k = 0; k < layerLengths[w]; k++)
-				cout << weights[w - 1][j][k] << " ";
-			cout << endl;
+				stl << weights[w - 1][j][k] << " ";
+			stl << endl;
 		}
-		cout << endl;
+		stl << endl;
 	}
 
 	//--------------------UPDATING FUNCTIONS--------------------
@@ -351,11 +416,36 @@ public:
 
 		return sum;
 	}
+
+	//--------------------FILE I/O--------------------
+
+	//output ANN to file
+	void output(string fileName)
+	{
+		ofstream file;
+		file.open(fileName);
+
+		if (!file) {
+			cout << "Error 404: File not found lolol" << endl;
+			return;
+		}
+
+		file << biases.size()<<" ";
+
+		for (int i = 0; i < biases.size(); i++)
+			file << biases[i].size() << " ";
+
+		file << endl;
+
+		printBiases(file);
+		printWeights(file);
+	}
+
 };
 
 int main()
 {
-	vector<int> len = {3, 3, 1};
+	vector<int> len = {3, 8, 2};
 
 	vector<vector<vector<float>>> train;
 
@@ -366,15 +456,17 @@ int main()
 		float r = distC(generatorC), g = distC(generatorC), b = distC(generatorC);
 		float dark = 1 - (.2126*r + .7152*g + .0722*b);
 
-		vector<vector<float>> RGB = { {r, g, b}, {(dark < .5 ? 0.0f : 1.0f)} };
+		vector<vector<float>> RGB = { {r, g, b}, {(dark < .5 ? 0.0f : 1.0f), (dark > .5 ? 0.0f : 1.0f)} };
 		train.push_back(RGB);
 	}
 
 	ANN network = ANN(len);
-	network.updatePair(train, 5, 2000);
+	network.updatePair(train, 5, 20);
 	vector<float> feed = {.3f, .3f, .3f};
 	network.feedForward(feed);
-	network.printActivations();
+	network.printBiases(cout);
+	network.printWeights(cout);
+	network.output("ANN.txt");
 
 	system("PAUSE");
 }
