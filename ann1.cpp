@@ -195,6 +195,8 @@ public:
 					in >> weights[i][j][k];
 			}
 		}
+
+		in.close();
 	}
 
 	//------------------------------PRINT FUNCTIONS------------------------------
@@ -432,34 +434,66 @@ public:
 
 		printBiases(file);
 		printWeights(file);
+
+		file.close();
 	}
 
 };
 
+//------------------------------MAIN AND OTHER FUNCTIONS------------------------------
+
+vector<vector<vector<float>>> getTrainingData(string name);
+
 int main()
 {
-	default_random_engine generatorC(time(NULL));
-	uniform_real_distribution<float> distC(0, 1);
-
 	vector<vector<vector<float>>> train;
 
-	for (int i = 0; i < 100; i++) {
-		float r = distC(generatorC), g = distC(generatorC), b = distC(generatorC);
-		float dark = 1 - (.2126*r + .7152*g + .0722*b);
+	train = getTrainingData("train.dat");
 
-		vector<vector<float>> RGB = { {r, g, b}, {(dark < .5 ? 0.0f : 1.0f), (dark > .5 ? 0.0f : 1.0f)} };
-		train.push_back(RGB);
-	}
-
-	vector<int> len = {3, 2, 2};
+	vector<int> len = {5, 3, 2};
 
 	ANN network = ANN(len);
-	network.updatePair(train, 5, 20);
+	network.updatePair(train, 5, 1000);
 	network.output("ANN.txt");
 
-	vector<float> feed = {.3f, .3f, .3f};
-	network.feedForward(feed);
+	network.printBiases(cout);
 	network.printWeights(cout);
 
 	system("PAUSE");
+}
+
+vector<vector<vector<float>>> getTrainingData(string name)
+{
+	vector<vector<vector<float>>> data;
+
+	ifstream file;
+	file.open(name);
+
+	int numIn, numOut, lines;
+	file >> numIn >> numOut;
+	string dummy;
+
+	for (int i = 0; i < numIn + numOut; i++)
+		file >> dummy;
+
+	file >> lines;
+
+	for (int i = 0; i < lines; i ++) {
+		vector<vector<float>> pair;
+		vector<float> in, out;
+
+		in.resize(numIn);
+		out.resize(numOut);
+
+		for (int j = 0; j < numIn; j++)
+			file >> in[j];
+
+		for (int k = 0; k < numOut; k++)
+			file >> out[k];
+
+		pair = {in, out};
+		data.push_back(pair);
+	}
+
+	return data;
 }
