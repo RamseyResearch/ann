@@ -7,6 +7,8 @@
 #include<string>
 using namespace std;
 
+vector<vector<vector<float>>> getTrainingData(string name);
+
 class ANN
 {
 
@@ -27,7 +29,7 @@ public:
 	//------------------------------CONSTRUCTORS------------------------------
 
 	//set ANN based on layer lengths
-	ANN(vector<int> &lengths)
+	ANN(vector<int>& lengths)
 	{
 		default_random_engine generatorB(time(NULL));
 		normal_distribution<float> distB(0,1);
@@ -78,7 +80,7 @@ public:
 	}
 
 	//set ANN based on weight and bias matrix
-	ANN(vector<vector<vector<float>>> &w, vector<vector<float>> &b)
+	ANN(vector<vector<vector<float>>>& w, vector<vector<float>>& b)
 	{
 		//check if dimensions of w and b are compatible
 		if (w.size() != b.size() - 1) {
@@ -238,7 +240,7 @@ public:
 	}
 
 	//print all biases; first layer is Xs
-	void printBiases(ostream &st)
+	void printBiases(ostream& st)
 	{
 		st << "Biases:" << endl;
 
@@ -257,7 +259,7 @@ public:
 	}
 
 	//print all weights; w[n][][] correspond to b[n+1][]
-	void printWeights(ostream &st)
+	void printWeights(ostream& st)
 	{
 		st << "Weights:" << endl;
 
@@ -275,7 +277,7 @@ public:
 	//------------------------------BACKPROPOGATION------------------------------
 
 	//calculate activations for all layers
-	void feedForward(vector<float> &x)
+	void feedForward(vector<float>& x)
 	{
 		activations[0] = x;
 
@@ -292,7 +294,7 @@ public:
 	}
 
 	//find output vector for final layer
-	void outputError(vector<float> &y)
+	void outputError(vector<float>& y)
 	{
 		int last = biases.size() - 1;
 
@@ -336,7 +338,7 @@ public:
 	//------------------------------UPDATING FUNCTIONS------------------------------
 
 	//calls all four steps at once for one training example
-	void updateOne(vector<float> &in, vector<float> &out, float rate)
+	void updateOne(vector<float>& in, vector<float>& out, float rate)
 	{	
 		feedForward(in);
 		outputError(out);
@@ -345,7 +347,7 @@ public:
 	}
 
 	//calls all four steps at once for a training example set
-	void update(vector<vector<float>> &in, vector<vector<float>> &out, float rate, int n)
+	void update(vector<vector<float>>& in, vector<vector<float>>& out, float rate, int n)
 	{
 		//see if there is one output for each input
 		if (in.size() != out.size()) {
@@ -373,7 +375,7 @@ public:
 	}
 
 	//calls all four steps at once for set of training pairs (x, y)
-	void updatePair(vector<vector<vector<float>>> &pair, float rate, int n)
+	void updatePair(vector<vector<vector<float>>>& pair, float rate, int n)
 	{
 		//check to see if pairs are given and then if they match dimensions of input and output layers
 		for (int i = 0; i < pair.size(); i++) {
@@ -398,7 +400,7 @@ public:
 	//------------------------------COST FUNCTIONS------------------------------
 
 	//mean squared error
-	float costPairs(vector<vector<vector<float>>> &stuff)
+	float costPairs(vector<vector<vector<float>>>& stuff)
 	{
 		float sum = 0;
 
@@ -438,26 +440,46 @@ public:
 		file.close();
 	}
 
+	//------------------------------OUTPUT CLASSIFICATION------------------------------
+
+	//gives ratio of correct classification of last perc% of data
+	void classify(vector<vector<vector<float>>>& data, int perc)
+	{
+		int size = data.size(), correct = 0, index;
+
+		for (int i = size - size*(perc/100.0); i < size; i++)
+		{
+			feedForward(data[i][0]);
+
+			if (activations.back()[0] > activations.back()[1])
+				index = 0;
+			else
+				index = 1;
+
+			if (data[i][1][index] >= .99)
+				correct++;	
+		}
+
+		cout << "Ratio correct: " << correct << "/" << size * (perc/100) << endl;
+	}
+
 };
 
 //------------------------------MAIN AND OTHER FUNCTIONS------------------------------
-
-vector<vector<vector<float>>> getTrainingData(string name);
 
 int main()
 {
 	vector<vector<vector<float>>> train;
 
-	train = getTrainingData("train.dat");
+	train = getTrainingData("train2.dat");
 
-	vector<int> len = {5, 3, 2};
+	vector<int> len = {5, 3, 3, 2};
 
 	ANN network = ANN(len);
-	network.updatePair(train, 5, 1000);
+	network.updatePair(train, 30, 1000);
 	network.output("ANN.txt");
 
-	network.printBiases(cout);
-	network.printWeights(cout);
+	network.classify(train, 10);
 
 	system("PAUSE");
 }
