@@ -9,6 +9,67 @@ using namespace std;
 
 vector<vector<vector<float>>> getTrainingData(string name);
 
+//------------------------------COST CLASSES------------------------------
+
+//abstract cost class
+class Cost
+{
+
+public:
+
+	virtual float cost(vector<vector<float>>& ex, vector<vector<float>>& acts) = 0;
+	virtual float gradient(float aaa, float yyy) = 0;
+
+};
+
+//mean square error cost function
+class SquareError : public Cost
+{
+
+public:
+
+	float cost(vector<vector<float>>& ex, vector<vector<float>>& acts)
+	{
+		float total = 0;
+
+		for (int i = 0; i < ex[1].size(); i++)
+			total += pow(ex[1][i] - acts[acts.size() - 1][i], 2);
+
+		return total / 2;
+	}
+
+	float gradient(float aaa, float yyy)
+	{
+		return aaa - yyy;
+	}
+
+};
+
+//cross-entropy cost function
+class CrossEntropy : public Cost
+{
+
+public:
+
+	float cost(vector<vector<float>>& ex, vector<vector<float>>& acts)
+	{
+		float total = 0;
+
+		for (int i = 0; i < ex[1].size(); i++)
+			total += ex[1][i] * log(acts[acts.size() - 1][i]) + (1 - ex[1][i]) * log(1 - acts[acts.size() - 1][i]);
+
+		return - (total);
+	}
+
+	float gradient(float aaa, float yyy)
+	{
+
+	}
+
+};
+
+//------------------------------THE ANN CLASS------------------------------
+
 class ANN
 {
 
@@ -24,6 +85,8 @@ private:
 	vector<vector<float>> activations;
 	vector<vector<float>> errors;
 
+	Cost* theCost;
+
 public:
 
 	//------------------------------CONSTRUCTORS------------------------------
@@ -31,6 +94,8 @@ public:
 	//set ANN based on layer lengths
 	ANN(vector<int>& lengths)
 	{
+		theCost = new SquareError();
+
 		default_random_engine generatorB(time(NULL));
 		normal_distribution<float> distB(0,1);
 
@@ -82,6 +147,8 @@ public:
 	//set ANN based on weight and bias matrix
 	ANN(vector<vector<vector<float>>>& w, vector<vector<float>>& b)
 	{
+		theCost = new SquareError();
+
 		//check if dimensions of w and b are compatible
 		if (w.size() != b.size() - 1) {
 			cout << "Error: incompatible dimensions." << endl;
@@ -133,6 +200,8 @@ public:
 	//set ANN based on file
 	ANN(string file)
 	{
+		theCost = new SquareError();
+
 		ifstream in(file);
 		if (!in) {
 			cout << "Error!!" << endl;
@@ -199,6 +268,20 @@ public:
 		}
 
 		in.close();
+
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			activations.push_back(row);
+		}
+
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			errors.push_back(row);
+		}
 	}
 
 	//------------------------------PRINT FUNCTIONS------------------------------
@@ -293,13 +376,13 @@ public:
 		}
 	}
 
-	//find output vector for final layer
+	//find error vector for final layer
 	void outputError(vector<float>& y)
 	{
 		int last = biases.size() - 1;
 
 		for (int i = 0; i < biases[last].size(); i++)
-			errors[last][i] = (activations[last][i] - y[i]) * (activations[last][i] * (1 - activations[last][i]));
+			errors[last][i] = theCost->gradient(activations[last][i],y[i]) * (activations[last][i] * (1 - activations[last][i]));
 	}
 
 	//calculate errors of previous layers
@@ -323,7 +406,7 @@ public:
 		//adjust weights
 		for (int i = 0; i < weights.size(); i++) {
 			for (int j = 0; j < weights[i].size(); j++) {
-				for (int k = 0; k < activations[i + 1].size(); k++) 
+				for (int k = 0; k < activations[i + 1].size(); k++)
 					weights[i][j][k] -= rate * activations[i][j] * errors[i+1][k];
 			}
 		}
@@ -374,8 +457,8 @@ public:
 		}
 	}
 
-	//calls all four steps at once for set of training pairs (x, y)
-	void updatePair(vector<vector<vector<float>>>& pair, float rate, int n)
+	//calls all four steps at once for set of training pairs (x, y) and perc% of data is used to train
+	void updatePair(vector<vector<vector<float>>>& pair, float rate, int n, float perc)
 	{
 		//check to see if pairs are given and then if they match dimensions of input and output layers
 		for (int i = 0; i < pair.size(); i++) {
@@ -387,17 +470,17 @@ public:
 		}
 
 		for (int a = 0; a < n; a++) {
-			for (int i = 0; i < pair.size(); i++)
+			for (int i = 0; i < (pair.size() * perc)/100; i++)
 				updateOne(pair[i][0], pair[i][1], rate);
 			
-			if (a % (n / 10) == n/10 - 1)
+			//if (a % (n / 10) == n/10 - 1)
 				cout << "Epoch " << a + 1<< " Cost: " << costPairs(pair) << endl;
 		}
 
 		cout << endl;
 	}
 
-	//------------------------------COST FUNCTIONS------------------------------
+	//------------------------------COST FUNCTION CALL------------------------------
 
 	//mean squared error
 	float costPairs(vector<vector<vector<float>>>& stuff)
@@ -407,11 +490,10 @@ public:
 		for (int i = 0; i < stuff.size(); i++) {
 			feedForward(stuff[i][0]);
 
-			for (int j = 0; j < stuff[i][1].size(); j++) 
-				sum += pow(stuff[i][1][j] - activations[activations.size() - 1][j], 2);
+			sum += theCost->cost(stuff[i], activations);
 		}
 
-		return sum/(2 * stuff.size());
+		return sum/(stuff.size());
 	}
 
 	//------------------------------FILE I/O------------------------------
@@ -460,7 +542,7 @@ public:
 				correct++;	
 		}
 
-		cout << "Ratio correct: " << correct << "/" << size * (perc/100) << endl;
+		cout << "Ratio correct: " << correct << "/" << size * (perc/100.0) << endl;
 	}
 
 };
@@ -471,12 +553,12 @@ int main()
 {
 	vector<vector<vector<float>>> train;
 
-	train = getTrainingData("train2.dat");
+	train = getTrainingData("train3.dat");
 
-	vector<int> len = {5, 3, 3, 2};
+	vector<int> len = {5, 4, 2};
 
 	ANN network = ANN(len);
-	network.updatePair(train, 30, 1000);
+	network.updatePair(train, .1, 150, 90);
 	network.output("ANN.txt");
 
 	network.classify(train, 10);
