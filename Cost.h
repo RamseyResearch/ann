@@ -1,3 +1,4 @@
+#pragma once
 #include<iostream>
 #include<vector>
 #include<cmath>
@@ -43,7 +44,7 @@ public:
 
 	float actFuncPrime(float z)
 	{
-		return (z < 0 ? 0 : 1);
+		return (z < 0 ? 0.0f : 1.0f);
 	}
 };
 
@@ -73,7 +74,7 @@ public:
 	{
 		float total = 0;
 
-		for (int i = 0; i < ex[1].size(); i++)
+		for (unsigned i = 0; i < ex[1].size(); i++)
 			total += pow(ex[1][i] - acts[acts.size() - 1][i], 2);
 
 		return total / 2;
@@ -90,7 +91,7 @@ public:
 	{
 		float total = 0;
 
-		for (int i = 0; i < ex[1].size(); i++)
+		for (unsigned i = 0; i < ex[1].size(); i++)
 			total += ex[1][i] * log(acts[acts.size() - 1][i]) + (1 - ex[1][i]) * log(1 - acts[acts.size() - 1][i]);
 
 		return -total;
