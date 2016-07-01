@@ -5,70 +5,8 @@
 #include<ctime>
 #include<fstream>
 #include<string>
+#include "Cost.h"
 using namespace std;
-
-vector<vector<vector<float>>> getTrainingData(string name);
-
-//------------------------------COST CLASSES------------------------------
-
-//abstract cost class
-class Cost
-{
-
-public:
-
-	virtual float cost(vector<vector<float>>& ex, vector<vector<float>>& acts) = 0;
-	virtual float gradient(float aaa, float yyy) = 0;
-
-};
-
-//mean square error cost function
-class SquareError : public Cost
-{
-
-public:
-
-	float cost(vector<vector<float>>& ex, vector<vector<float>>& acts)
-	{
-		float total = 0;
-
-		for (int i = 0; i < ex[1].size(); i++)
-			total += pow(ex[1][i] - acts[acts.size() - 1][i], 2);
-
-		return total / 2;
-	}
-
-	float gradient(float aaa, float yyy)
-	{
-		return aaa - yyy;
-	}
-
-};
-
-//cross-entropy cost function
-class CrossEntropy : public Cost
-{
-
-public:
-
-	float cost(vector<vector<float>>& ex, vector<vector<float>>& acts)
-	{
-		float total = 0;
-
-		for (int i = 0; i < ex[1].size(); i++)
-			total += ex[1][i] * log(acts[acts.size() - 1][i]) + (1 - ex[1][i]) * log(1 - acts[acts.size() - 1][i]);
-
-		return - (total);
-	}
-
-	float gradient(float aaa, float yyy)
-	{
-
-	}
-
-};
-
-//------------------------------THE ANN CLASS------------------------------
 
 class ANN
 {
@@ -82,20 +20,50 @@ private:
 
 	vector<vector<float>> biases;
 	vector<vector<vector<float>>> weights;
+	vector<vector<float>> preAct;
 	vector<vector<float>> activations;
 	vector<vector<float>> errors;
 
 	Cost* theCost;
+	Neuron* theNeuron;
 
 public:
 
-	//------------------------------CONSTRUCTORS------------------------------
+	//------------------------------INIT AND CONSTRUCTORS------------------------------
+
+	void init()
+	{
+		theCost = new SquareError();
+		theNeuron = new Sigmoid();
+
+		//set all pre-activations to 0
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			preAct.push_back(row);
+		}
+
+		//set all activations to 0
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			activations.push_back(row);
+		}
+
+		//set errors to 0
+		for (int i = 0; i < numLayers; i++) {
+			vector<float> row;
+			for (int j = 0; j < layerLengths[i]; j++)
+				row.push_back(0);
+			errors.push_back(row);
+		}
+	}
 
 	//set ANN based on layer lengths
 	ANN(vector<int>& lengths)
 	{
-		theCost = new SquareError();
-
 		default_random_engine generatorB(time(NULL));
 		normal_distribution<float> distB(0,1);
 
@@ -109,46 +77,30 @@ public:
 		//set biases; biases exist for first layer but shouldn't, so don't access [0]
 		for (int i = 0; i < numLayers; i++) {
 			vector<float> row;
-			for (int j = 0; j < lengths[i]; j++)
+			for (int j = 0; j < layerLengths[i]; j++)
 				row.push_back( distB(generatorB) );
 			biases.push_back(row);
-		}
-
-		//set all activations to 0
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < lengths[i]; j++)
-				row.push_back( 0 );
-			activations.push_back(row);
-		}
-
-		//set errors to 0
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < lengths[i]; j++)
-				row.push_back(0);
-			errors.push_back(row);
 		}
 
 		//set weights; weights[n][][] correspond to neurons in biases[n+1][]
 		for (int i = 0; i < numLayers - 1; i++) {
 			vector<vector<float>> row;
 
-			for (int j = 0; j < lengths[i]; j++) {
+			for (int j = 0; j < layerLengths[i]; j++) {
 				vector<float> subRow;
-				for (int k = 0; i + 1 < numLayers && k < lengths[i + 1]; k++)
+				for (int k = 0; i + 1 < numLayers && k < layerLengths[i + 1]; k++)
 					subRow.push_back( distB(generatorB) );
 				row.push_back(subRow);
 			}
 			weights.push_back(row);
 		}
+
+		init();
 	}
 
 	//set ANN based on weight and bias matrix
 	ANN(vector<vector<vector<float>>>& w, vector<vector<float>>& b)
 	{
-		theCost = new SquareError();
-
 		//check if dimensions of w and b are compatible
 		if (w.size() != b.size() - 1) {
 			cout << "Error: incompatible dimensions." << endl;
@@ -182,26 +134,12 @@ public:
 		for (int m = 0; m < numLayers; m++)
 			maxLength = (layerLengths[m] > maxLength ? layerLengths[m] : maxLength);
 
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < layerLengths[i]; j++)
-				row.push_back(0);
-			activations.push_back(row);
-		}
-
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < layerLengths[i]; j++)
-				row.push_back(0);
-			errors.push_back(row);
-		}
+		init();
 	}
 
 	//set ANN based on file
 	ANN(string file)
 	{
-		theCost = new SquareError();
-
 		ifstream in(file);
 		if (!in) {
 			cout << "Error!!" << endl;
@@ -269,19 +207,7 @@ public:
 
 		in.close();
 
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < layerLengths[i]; j++)
-				row.push_back(0);
-			activations.push_back(row);
-		}
-
-		for (int i = 0; i < numLayers; i++) {
-			vector<float> row;
-			for (int j = 0; j < layerLengths[i]; j++)
-				row.push_back(0);
-			errors.push_back(row);
-		}
+		init();
 	}
 
 	//------------------------------PRINT FUNCTIONS------------------------------
@@ -354,12 +280,11 @@ public:
 			}
 			st << endl;
 		}		
-			//printWeightsForLayer(i, st);
 	}
 
 	//------------------------------BACKPROPOGATION------------------------------
 
-	//calculate activations for all layers
+	//calculate preActs and activations for all layers
 	void feedForward(vector<float>& x)
 	{
 		activations[0] = x;
@@ -371,7 +296,8 @@ public:
 				for (int k = 0; k < activations[i - 1].size(); k++)
 					sum += weights[i - 1][k][j] * activations[i - 1][k];
 
-				activations[i][j] = 1/(1 + exp(-(sum + biases[i][j])));
+				preAct[i][j] = sum + biases[i][j];
+				activations[i][j] = theNeuron->actFunc(preAct[i][j]);
 			}
 		}
 	}
@@ -379,10 +305,10 @@ public:
 	//find error vector for final layer
 	void outputError(vector<float>& y)
 	{
-		int last = biases.size() - 1;
+		int last = activations.size() - 1;
 
 		for (int i = 0; i < biases[last].size(); i++)
-			errors[last][i] = theCost->gradient(activations[last][i],y[i]) * (activations[last][i] * (1 - activations[last][i]));
+			errors[last][i] = theCost->gradient(activations[last][i], y[i]) * theNeuron->actFuncPrime(preAct[last][i]);
 	}
 
 	//calculate errors of previous layers
@@ -395,7 +321,7 @@ public:
 				for (int k = 0; k < weights[i][j].size(); k++)
 					dot += (weights[i][j][k] * errors[i + 1][k]);
 
-				errors[i][j] = dot * (activations[i][j] * (1 - activations[i][j]));
+				errors[i][j] = dot * theNeuron->actFuncPrime(preAct[i][j]);
 			}
 		}
 	}
@@ -472,8 +398,6 @@ public:
 		for (int a = 0; a < n; a++) {
 			for (int i = 0; i < (pair.size() * perc)/100; i++)
 				updateOne(pair[i][0], pair[i][1], rate);
-			
-			//if (a % (n / 10) == n/10 - 1)
 				cout << "Epoch " << a + 1<< " Cost: " << costPairs(pair) << endl;
 		}
 
@@ -505,7 +429,7 @@ public:
 		file.open(fileName);
 
 		if (!file) {
-			cout << "Error 404: No file" << endl;
+			cout << "Error: No file" << endl;
 			return;
 		}
 
@@ -549,11 +473,13 @@ public:
 
 //------------------------------MAIN AND OTHER FUNCTIONS------------------------------
 
+vector<vector<vector<float>>> getTrainingData(string name);
+
 int main()
 {
 	vector<vector<vector<float>>> train;
 
-	train = getTrainingData("train3.dat");
+	train = getTrainingData("train4.dat");
 
 	vector<int> len = {5, 4, 2};
 
